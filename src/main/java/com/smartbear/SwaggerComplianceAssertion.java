@@ -47,6 +47,7 @@ import org.apache.xmlbeans.XmlObject;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.util.Iterator;
@@ -103,43 +104,10 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
     protected String internalAssertResponse(MessageExchange messageExchange, SubmitContext submitContext) throws AssertionException {
 
         try {
-            String contentAsString = messageExchange.getResponse().getContentAsString();
-            if (StringUtils.isNullOrEmpty(contentAsString)) {
-                return "Response is empty - not a valid response";
-            }
 
-            if (swaggerUrl != null && messageExchange.getModelItem() instanceof HttpTestRequestInterface) {
-
-                Swagger swagger = getSwagger( submitContext );
-
-                HttpTestRequestInterface<?> testRequest = ((HttpTestRequestInterface) messageExchange.getModelItem());
-                RestRequestInterface.HttpMethod method = testRequest.getMethod();
-
-                URL endpoint = new URL(messageExchange.getEndpoint());
-                String path = endpoint.getPath();
-                if( path != null ) {
-                    if (swagger.getBasePath() != null && path.startsWith(swagger.getBasePath())) {
-                        path = path.substring(swagger.getBasePath().length());
-                    }
-
-                    for (String swaggerPath : swagger.getPaths().keySet()) {
-
-                        if (matchesPath(path, swaggerPath)) {
-                            HttpMethod methodName = HttpMethod.valueOf(method.name());
-                            Operation operation = swagger.getPath(swaggerPath).getOperationMap().get(methodName);
-                            if (operation != null) {
-                                if (validateOperation((RestRequestStepResult) messageExchange, contentAsString, swagger, path, methodName, operation)) {
-                                    return "Response is compliant with Swagger Definition";
-                                }
-                            }
-                            else {
-                                throw new AssertionException(new AssertionError(
-                                    "Failed to find " + methodName + " method for path [" + path + "] in Swagger definition"));
-                            }
-                        }
-                    }
-
-                    throw new AssertionException(new AssertionError( "Failed to find path [" + path + "] in Swagger definition"));
+            if (swaggerUrl != null && messageExchange instanceof RestRequestStepResult ) {
+                if (validateMessage((RestRequestStepResult) messageExchange, submitContext)) {
+                    return "Response is compliant with Swagger Definition";
                 }
             }
         } catch (AssertionException e) {
@@ -151,6 +119,43 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
         return "Response is compliant with Swagger definition";
     }
 
+    private boolean validateMessage(RestRequestStepResult messageExchange, SubmitContext submitContext) throws MalformedURLException, AssertionException {
+        Swagger swagger = getSwagger( submitContext );
+
+        HttpTestRequestInterface<?> testRequest = ((HttpTestRequestInterface) messageExchange.getModelItem());
+        RestRequestInterface.HttpMethod method = testRequest.getMethod();
+
+        URL endpoint = new URL(messageExchange.getEndpoint());
+        String path = endpoint.getPath();
+        if( path != null ) {
+            if (swagger.getBasePath() != null && path.startsWith(swagger.getBasePath())) {
+                path = path.substring(swagger.getBasePath().length());
+            }
+
+            for (String swaggerPath : swagger.getPaths().keySet()) {
+
+                if (matchesPath(path, swaggerPath)) {
+                    HttpMethod methodName = HttpMethod.valueOf(method.name());
+                    Operation operation = swagger.getPath(swaggerPath).getOperationMap().get(methodName);
+                    if (operation != null) {
+                        if (validateOperation( messageExchange,
+                            messageExchange.getResponseContent(),
+                            swagger, path, methodName, operation)) {
+                            return true;
+                        }
+                    }
+                    else {
+                        throw new AssertionException(new AssertionError(
+                            "Failed to find " + methodName + " method for path [" + path + "] in Swagger definition"));
+                    }
+                }
+            }
+
+            throw new AssertionException(new AssertionError( "Failed to find matching path for [" + path + "] in Swagger definition"));
+        }
+        return false;
+    }
+
     private boolean validateOperation(RestRequestStepResult messageExchange, String contentAsString, Swagger swagger, String path, HttpMethod methodName, Operation operation) throws AssertionException {
         String responseCode = String.valueOf(messageExchange.getResponse().getStatusCode());
 
@@ -160,18 +165,17 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
         }
 
         if (responseSchema != null ) {
-            if (validateResponse(contentAsString, swagger, responseSchema)) {
-                return true;
-            }
+            validateResponse(contentAsString, swagger, responseSchema);
         }
         else {
             throw new AssertionException(new AssertionError(
                 "Missing response for a " + responseCode + " response from " + methodName + " " + path + " in Swagger definition"));
         }
-        return false;
+
+        return true;
     }
 
-    private boolean validateResponse(String contentAsString, Swagger swagger, Response responseSchema) throws AssertionException {
+    private void validateResponse(String contentAsString, Swagger swagger, Response responseSchema) throws AssertionException {
         if( responseSchema.getSchema() != null) {
             Property schema = responseSchema.getSchema();
             if (schema instanceof RefProperty) {
@@ -183,10 +187,6 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
                 validate(contentAsString, Json.pretty(schema));
             }
         }
-        else {
-            return true;
-        }
-        return false;
     }
 
     private boolean matchesPath(String path, String swaggerPath) {
@@ -224,10 +224,8 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
 
     public void validate(String payload, String schema) throws AssertionException {
         try {
-
             JsonSchema jsonSchema = getSwaggerSchema();
             JsonNode contentObject = Json.mapper().readTree(payload);
-
 
             ProcessingReport report = jsonSchema.validate(contentObject);
             if (!report.isSuccess()) {

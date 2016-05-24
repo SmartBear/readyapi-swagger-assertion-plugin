@@ -27,7 +27,7 @@ public class TestComplianceAssertion {
         WsdlProjectPro project = new WsdlProjectPro();
         WsdlTestCase wsdlTestCase = project.addNewTestSuite("TestSuite").addNewTestCase("TestCase");
         HttpRequestTestStep testStep =
-            (HttpRequestTestStep) wsdlTestCase.addTestStep(HttpRequestStepFactory.HTTPREQUEST_TYPE, "Request","https://api.swaggerhub.com/apis/olensmar/test/1.0.0", "GET" );
+            (HttpRequestTestStep) wsdlTestCase.addTestStep(HttpRequestStepFactory.HTTPREQUEST_TYPE, "Request","https://api.swaggerhub.com/apis/olensmar/123/tewe/teer", "GET" );
 
         // run it
         WsdlTestCaseRunner runner = wsdlTestCase.run(new StringToObjectMap(), false);
