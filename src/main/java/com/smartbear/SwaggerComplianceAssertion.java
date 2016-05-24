@@ -138,11 +138,11 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
                     HttpMethod methodName = HttpMethod.valueOf(method.name());
                     Operation operation = swagger.getPath(swaggerPath).getOperationMap().get(methodName);
                     if (operation != null) {
-                        if (validateOperation( messageExchange,
+                        validateOperation( messageExchange,
                             messageExchange.getResponseContent(),
-                            swagger, path, methodName, operation)) {
-                            return true;
-                        }
+                            swagger, path, methodName, operation);
+
+                        return true;
                     }
                     else {
                         throw new AssertionException(new AssertionError(
@@ -153,10 +153,11 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
 
             throw new AssertionException(new AssertionError( "Failed to find matching path for [" + path + "] in Swagger definition"));
         }
+
         return false;
     }
 
-    private boolean validateOperation(RestRequestStepResult messageExchange, String contentAsString, Swagger swagger, String path, HttpMethod methodName, Operation operation) throws AssertionException {
+    private void validateOperation(RestRequestStepResult messageExchange, String contentAsString, Swagger swagger, String path, HttpMethod methodName, Operation operation) throws AssertionException {
         String responseCode = String.valueOf(messageExchange.getResponse().getStatusCode());
 
         Response responseSchema = operation.getResponses().get(responseCode);
@@ -171,8 +172,6 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
             throw new AssertionException(new AssertionError(
                 "Missing response for a " + responseCode + " response from " + methodName + " " + path + " in Swagger definition"));
         }
-
-        return true;
     }
 
     private void validateResponse(String contentAsString, Swagger swagger, Response responseSchema) throws AssertionException {
@@ -181,7 +180,7 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
             if (schema instanceof RefProperty) {
                 Model model = swagger.getDefinitions().get(((RefProperty) schema).getSimpleRef());
                 if (model != null) {
-                    validate(contentAsString, Json.pretty(model));
+                    validate(contentAsString, null );
                 }
             } else {
                 validate(contentAsString, Json.pretty(schema));
@@ -213,18 +212,30 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
         return true;
     }
 
-    private Swagger getSwagger(SubmitContext submitContext) {
-        if( swagger == null ) {
+    private Swagger getSwagger(SubmitContext submitContext) throws AssertionException {
+        if( swagger == null && swaggerUrl != null ) {
             SwaggerParser parser = new SwaggerParser();
             swagger = parser.read( submitContext.expand( swaggerUrl ));
+            if( swagger == null ){
+                throw new AssertionException(new AssertionError("Failed to load Swagger definition from [" + swaggerUrl + "]"));
+            }
             swaggerSchema = null;
         }
         return swagger;
     }
 
-    public void validate(String payload, String schema) throws AssertionException {
+    public void validate(String payload, String schema ) throws AssertionException {
         try {
-            JsonSchema jsonSchema = getSwaggerSchema();
+            JsonSchema jsonSchema;
+
+            if( schema != null ){
+                JsonNode schemaObject = Json.mapper().readTree(schema);
+                JsonSchemaFactory factory = JsonSchemaFactory.byDefault();
+                jsonSchema = factory.getJsonSchema(schemaObject);
+            } else {
+                jsonSchema = getSwaggerSchema();
+            }
+
             JsonNode contentObject = Json.mapper().readTree(payload);
 
             ProcessingReport report = jsonSchema.validate(contentObject);
