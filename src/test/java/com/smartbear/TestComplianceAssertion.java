@@ -6,14 +6,12 @@ import com.eviware.soapui.impl.wsdl.WsdlProjectPro;
 import com.eviware.soapui.impl.wsdl.testcase.WsdlTestCase;
 import com.eviware.soapui.impl.wsdl.testcase.WsdlTestCaseRunner;
 import com.eviware.soapui.impl.wsdl.teststeps.RestRequestStepResult;
-import com.eviware.soapui.impl.wsdl.teststeps.WsdlMessageExchangeTestStepResult;
 import com.eviware.soapui.impl.wsdl.teststeps.registry.HttpRequestStepFactory;
 import com.eviware.soapui.model.testsuite.Assertable;
 import com.eviware.soapui.support.types.StringToObjectMap;
 import com.eviware.soapui.support.xml.XmlObjectConfigurationBuilder;
 import org.junit.Test;
 
-import java.io.IOException;
 import java.util.Arrays;
 
 import static junit.framework.TestCase.assertEquals;

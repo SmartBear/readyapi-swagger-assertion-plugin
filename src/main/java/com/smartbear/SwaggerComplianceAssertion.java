@@ -3,12 +3,9 @@ package com.smartbear;
 import com.eviware.soapui.config.TestAssertionConfig;
 import com.eviware.soapui.impl.rest.RestRequestInterface;
 import com.eviware.soapui.impl.wsdl.panels.assertions.AssertionCategoryMapping;
-import com.eviware.soapui.impl.wsdl.submit.HttpMessageExchange;
 import com.eviware.soapui.impl.wsdl.teststeps.HttpTestRequestInterface;
-import com.eviware.soapui.impl.wsdl.teststeps.HttpTestRequestStepInterface;
 import com.eviware.soapui.impl.wsdl.teststeps.RestRequestStepResult;
 import com.eviware.soapui.impl.wsdl.teststeps.WsdlMessageAssertion;
-import com.eviware.soapui.impl.wsdl.teststeps.WsdlTestStepResult;
 import com.eviware.soapui.model.TestPropertyHolder;
 import com.eviware.soapui.model.iface.MessageExchange;
 import com.eviware.soapui.model.iface.SubmitContext;
@@ -17,17 +14,11 @@ import com.eviware.soapui.model.testsuite.AssertionError;
 import com.eviware.soapui.model.testsuite.AssertionException;
 import com.eviware.soapui.model.testsuite.ResponseAssertion;
 import com.eviware.soapui.plugins.auto.PluginTestAssertion;
-import com.eviware.soapui.support.StringUtils;
 import com.eviware.soapui.support.UISupport;
 import com.eviware.soapui.support.xml.XmlObjectConfigurationBuilder;
 import com.eviware.soapui.support.xml.XmlObjectConfigurationReader;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.github.fge.jsonschema.core.exceptions.ProcessingException;
-import com.github.fge.jsonschema.core.load.Dereferencing;
-import com.github.fge.jsonschema.core.load.configuration.LoadingConfiguration;
-import com.github.fge.jsonschema.core.load.configuration.LoadingConfigurationBuilder;
-import com.github.fge.jsonschema.core.load.download.URIDownloader;
-import com.github.fge.jsonschema.core.load.uri.URITranslatorConfiguration;
 import com.github.fge.jsonschema.core.report.LogLevel;
 import com.github.fge.jsonschema.core.report.ProcessingMessage;
 import com.github.fge.jsonschema.core.report.ProcessingReport;
@@ -46,13 +37,9 @@ import io.swagger.util.Json;
 import org.apache.xmlbeans.XmlObject;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.MalformedURLException;
-import java.net.URI;
 import java.net.URL;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 
 @PluginTestAssertion(id = "SwaggerComplianceAssertion", label = "Swagger Compliance Assertion",
     category = AssertionCategoryMapping.VALIDATE_RESPONSE_CONTENT_CATEGORY,
@@ -78,7 +65,7 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
     public boolean configure() {
 
         String endpoint = UISupport.prompt("Specify endpoint to Swagger definition to use for validation", "Swagger Compliance", swaggerUrl);
-        if( endpoint == null ){
+        if (endpoint == null) {
             return false;
         }
 
@@ -92,7 +79,7 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
         swagger = null;
         swaggerSchema = null;
 
-        setConfiguration( createConfiguration() );
+        setConfiguration(createConfiguration());
     }
 
     protected XmlObject createConfiguration() {
@@ -105,7 +92,7 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
 
         try {
 
-            if (swaggerUrl != null && messageExchange instanceof RestRequestStepResult ) {
+            if (swaggerUrl != null && messageExchange instanceof RestRequestStepResult) {
                 if (validateMessage((RestRequestStepResult) messageExchange, submitContext)) {
                     return "Response is compliant with Swagger Definition";
                 }
@@ -120,14 +107,14 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
     }
 
     private boolean validateMessage(RestRequestStepResult messageExchange, SubmitContext submitContext) throws MalformedURLException, AssertionException {
-        Swagger swagger = getSwagger( submitContext );
+        Swagger swagger = getSwagger(submitContext);
 
         HttpTestRequestInterface<?> testRequest = ((HttpTestRequestInterface) messageExchange.getModelItem());
         RestRequestInterface.HttpMethod method = testRequest.getMethod();
 
         URL endpoint = new URL(messageExchange.getEndpoint());
         String path = endpoint.getPath();
-        if( path != null ) {
+        if (path != null) {
             if (swagger.getBasePath() != null && path.startsWith(swagger.getBasePath())) {
                 path = path.substring(swagger.getBasePath().length());
             }
@@ -138,20 +125,19 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
                     HttpMethod methodName = HttpMethod.valueOf(method.name());
                     Operation operation = swagger.getPath(swaggerPath).getOperationMap().get(methodName);
                     if (operation != null) {
-                        validateOperation( messageExchange,
+                        validateOperation(messageExchange,
                             messageExchange.getResponseContent(),
                             swagger, path, methodName, operation);
 
                         return true;
-                    }
-                    else {
+                    } else {
                         throw new AssertionException(new AssertionError(
                             "Failed to find " + methodName + " method for path [" + path + "] in Swagger definition"));
                     }
                 }
             }
 
-            throw new AssertionException(new AssertionError( "Failed to find matching path for [" + path + "] in Swagger definition"));
+            throw new AssertionException(new AssertionError("Failed to find matching path for [" + path + "] in Swagger definition"));
         }
 
         return false;
@@ -165,22 +151,21 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
             responseSchema = operation.getResponses().get("default");
         }
 
-        if (responseSchema != null ) {
+        if (responseSchema != null) {
             validateResponse(contentAsString, swagger, responseSchema);
-        }
-        else {
+        } else {
             throw new AssertionException(new AssertionError(
                 "Missing response for a " + responseCode + " response from " + methodName + " " + path + " in Swagger definition"));
         }
     }
 
     private void validateResponse(String contentAsString, Swagger swagger, Response responseSchema) throws AssertionException {
-        if( responseSchema.getSchema() != null) {
+        if (responseSchema.getSchema() != null) {
             Property schema = responseSchema.getSchema();
             if (schema instanceof RefProperty) {
                 Model model = swagger.getDefinitions().get(((RefProperty) schema).getSimpleRef());
                 if (model != null) {
-                    validate(contentAsString, null );
+                    validate(contentAsString, null);
                 }
             } else {
                 validate(contentAsString, Json.pretty(schema));
@@ -193,18 +178,17 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
         String[] pathSegments = path.split("\\/");
         String[] swaggerPathSegments = swaggerPath.split("\\/");
 
-        if( pathSegments.length != swaggerPathSegments.length ){
+        if (pathSegments.length != swaggerPathSegments.length) {
             return false;
         }
 
-        for( int c = 0; c < pathSegments.length; c++ ){
+        for (int c = 0; c < pathSegments.length; c++) {
             String pathSegment = pathSegments[c];
             String swaggerPathSegment = swaggerPathSegments[c];
 
-            if(swaggerPathSegment.startsWith("{") && swaggerPathSegment.endsWith("}")){
+            if (swaggerPathSegment.startsWith("{") && swaggerPathSegment.endsWith("}")) {
                 continue;
-            }
-            else if( !swaggerPathSegment.equalsIgnoreCase(pathSegment) ){
+            } else if (!swaggerPathSegment.equalsIgnoreCase(pathSegment)) {
                 return false;
             }
         }
@@ -213,10 +197,10 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
     }
 
     private Swagger getSwagger(SubmitContext submitContext) throws AssertionException {
-        if( swagger == null && swaggerUrl != null ) {
+        if (swagger == null && swaggerUrl != null) {
             SwaggerParser parser = new SwaggerParser();
-            swagger = parser.read( submitContext.expand( swaggerUrl ));
-            if( swagger == null ){
+            swagger = parser.read(submitContext.expand(swaggerUrl));
+            if (swagger == null) {
                 throw new AssertionException(new AssertionError("Failed to load Swagger definition from [" + swaggerUrl + "]"));
             }
             swaggerSchema = null;
@@ -224,11 +208,11 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
         return swagger;
     }
 
-    public void validate(String payload, String schema ) throws AssertionException {
+    public void validate(String payload, String schema) throws AssertionException {
         try {
             JsonSchema jsonSchema;
 
-            if( schema != null ){
+            if (schema != null) {
                 JsonNode schemaObject = Json.mapper().readTree(schema);
                 JsonSchemaFactory factory = JsonSchemaFactory.byDefault();
                 jsonSchema = factory.getJsonSchema(schemaObject);
@@ -242,12 +226,12 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
             if (!report.isSuccess()) {
                 List<AssertionError> errors = Lists.newArrayList();
                 for (ProcessingMessage message : report) {
-                    if( message.getLogLevel() == LogLevel.ERROR || message.getLogLevel() == LogLevel.FATAL ) {
+                    if (message.getLogLevel() == LogLevel.ERROR || message.getLogLevel() == LogLevel.FATAL) {
                         errors.add(new AssertionError(message.getMessage()));
                     }
                 }
 
-                if( !errors.isEmpty()) {
+                if (!errors.isEmpty()) {
                     throw new AssertionException(errors.toArray(new AssertionError[errors.size()]));
                 }
             }
@@ -259,7 +243,7 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
     }
 
     private JsonSchema getSwaggerSchema() throws IOException, ProcessingException {
-        if( swaggerSchema == null ) {
+        if (swaggerSchema == null) {
             JsonNode schemaObject = Json.mapper().readTree(Json.pretty(swagger));
             JsonSchemaFactory factory = JsonSchemaFactory.byDefault();
             swaggerSchema = factory.getJsonSchema(schemaObject);
