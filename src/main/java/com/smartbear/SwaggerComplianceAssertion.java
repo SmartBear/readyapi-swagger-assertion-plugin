@@ -43,7 +43,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 
 @PluginTestAssertion(id = "SwaggerComplianceAssertion", label = "Swagger Compliance Assertion",
-    category = AssertionCategoryMapping.VALIDATE_RESPONSE_CONTENT_CATEGORY,
+    category = AssertionCategoryMapping.STATUS_CATEGORY,
     description = "Asserts that the response message is compliant with a Swagger definition")
 public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements ResponseAssertion {
     private static final String SWAGGER_URL = "swaggerUrl";
@@ -263,7 +263,7 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
 
             if (schema != null) {
                 // make local refs absolute to match existing schema
-                schema = schema.replaceAll("\"#\\/definitions\\/", "\"" + swaggerUrl + "#/definitions/");
+              //  schema = schema.replaceAll("\"#\\/definitions\\/", "\"" + swaggerUrl + "#/definitions/");
                 JsonNode schemaObject = Json.mapper().readTree(schema);
 
                 // build custom schema factory that preloads existing schema

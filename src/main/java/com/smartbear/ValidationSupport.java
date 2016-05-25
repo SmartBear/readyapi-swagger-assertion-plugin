@@ -13,8 +13,14 @@ import com.google.common.collect.Lists;
 import java.util.List;
 
 public class ValidationSupport {
-    static void validateMessage(JsonSchema jsonSchema, JsonNode contentObject) throws ProcessingException, AssertionException {
-        ProcessingReport report = jsonSchema.validate(contentObject);
+    static void validateMessage(JsonSchema jsonSchema, JsonNode contentObject) throws AssertionException {
+        ProcessingReport report = null;
+        try {
+            report = jsonSchema.validate(contentObject);
+        } catch (ProcessingException e) {
+            throw new AssertionException( new AssertionError( e.getProcessingMessage().getMessage() ));
+        }
+
         if (!report.isSuccess()) {
             List<AssertionError> errors = Lists.newArrayList();
             for (ProcessingMessage message : report) {

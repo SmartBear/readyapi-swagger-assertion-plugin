@@ -32,7 +32,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 
 @PluginTestAssertion(id = "JsonSchemaComplianceAssertion", label = "JSON Schema Compliance Assertion",
-    category = AssertionCategoryMapping.VALIDATE_RESPONSE_CONTENT_CATEGORY,
+    category = AssertionCategoryMapping.STATUS_CATEGORY,
     description = "Asserts that the response message is compliant with a JSON Schema definition")
 public class JsonSchemaComplianceAssertion extends WsdlMessageAssertion implements ResponseAssertion {
     private static final String SCHEMA_URL = "schemaUrl";
