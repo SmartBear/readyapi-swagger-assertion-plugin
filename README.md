@@ -1,3 +1,3 @@
-## Ready! API Swagger Compliance Assertion
+## Ready! API Swagger and JSON Schema Compliance Assertions
 
-Validates response messages against a specified Swagger definition.
+Adds assertions for validating response messages against a specified Swagger definition or standalone JSON Schema

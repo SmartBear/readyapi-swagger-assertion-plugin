@@ -3,8 +3,8 @@ package com.smartbear;
 import com.eviware.soapui.config.TestAssertionConfig;
 import com.eviware.soapui.impl.rest.RestRequestInterface;
 import com.eviware.soapui.impl.wsdl.panels.assertions.AssertionCategoryMapping;
+import com.eviware.soapui.impl.wsdl.submit.HttpMessageExchange;
 import com.eviware.soapui.impl.wsdl.teststeps.HttpTestRequestInterface;
-import com.eviware.soapui.impl.wsdl.teststeps.RestRequestStepResult;
 import com.eviware.soapui.impl.wsdl.teststeps.WsdlMessageAssertion;
 import com.eviware.soapui.model.TestPropertyHolder;
 import com.eviware.soapui.model.iface.MessageExchange;
@@ -15,19 +15,21 @@ import com.eviware.soapui.model.testsuite.AssertionException;
 import com.eviware.soapui.model.testsuite.ResponseAssertion;
 import com.eviware.soapui.plugins.auto.PluginTestAssertion;
 import com.eviware.soapui.support.UISupport;
+import com.eviware.soapui.support.types.StringToStringMap;
 import com.eviware.soapui.support.xml.XmlObjectConfigurationBuilder;
 import com.eviware.soapui.support.xml.XmlObjectConfigurationReader;
+import com.eviware.x.form.XForm;
+import com.eviware.x.form.XFormDialog;
+import com.eviware.x.form.XFormDialogBuilder;
+import com.eviware.x.form.XFormFactory;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.github.fge.jsonschema.core.exceptions.ProcessingException;
-import com.github.fge.jsonschema.core.report.LogLevel;
-import com.github.fge.jsonschema.core.report.ProcessingMessage;
-import com.github.fge.jsonschema.core.report.ProcessingReport;
+import com.github.fge.jsonschema.core.load.configuration.LoadingConfiguration;
 import com.github.fge.jsonschema.main.JsonSchema;
 import com.github.fge.jsonschema.main.JsonSchemaFactory;
-import com.google.common.collect.Lists;
-import io.swagger.models.HttpMethod;
 import io.swagger.models.Model;
 import io.swagger.models.Operation;
+import io.swagger.models.Path;
 import io.swagger.models.Response;
 import io.swagger.models.Swagger;
 import io.swagger.models.properties.Property;
@@ -39,16 +41,18 @@ import org.apache.xmlbeans.XmlObject;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.List;
 
 @PluginTestAssertion(id = "SwaggerComplianceAssertion", label = "Swagger Compliance Assertion",
     category = AssertionCategoryMapping.VALIDATE_RESPONSE_CONTENT_CATEGORY,
     description = "Asserts that the response message is compliant with a Swagger definition")
 public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements ResponseAssertion {
     private static final String SWAGGER_URL = "swaggerUrl";
+    private static final String STRICT_MODE = "strictMode";
+    private boolean strictMode;
     private String swaggerUrl;
     private Swagger swagger;
     private JsonSchema swaggerSchema;
+    private XFormDialog dialog;
 
     /**
      * Assertions need to have a constructor that takes a TestAssertionConfig and the ModelItem to be asserted
@@ -59,41 +63,65 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
 
         XmlObjectConfigurationReader reader = new XmlObjectConfigurationReader(getConfiguration());
         swaggerUrl = reader.readString(SWAGGER_URL, null);
+        strictMode = reader.readBoolean(STRICT_MODE, true);
     }
 
     @Override
-    public boolean configure() {
+    public boolean isConfigurable() {
+        return true;
+    }
 
-        String endpoint = UISupport.prompt("Specify endpoint to Swagger definition to use for validation", "Swagger Compliance", swaggerUrl);
-        if (endpoint == null) {
-            return false;
+    public boolean configure() {
+        if (dialog == null) {
+            buildDialog();
         }
 
-        setSwaggerUrl(endpoint);
+        StringToStringMap values = new StringToStringMap();
+        values.put(SWAGGER_URL, swaggerUrl);
+        values.put(STRICT_MODE, strictMode);
 
+        values = dialog.show(values);
+        if (dialog.getReturnValue() == XFormDialog.OK_OPTION) {
+            setSwaggerUrl(values.get(SWAGGER_URL));
+            strictMode = values.getBoolean(STRICT_MODE);
+        }
+
+        setConfiguration(createConfiguration());
         return true;
+    }
+
+    private void buildDialog() {
+        XFormDialogBuilder builder = XFormFactory.createDialogBuilder("Swagger Compliance Assertion");
+        XForm mainForm = builder.createForm("Basic");
+
+        mainForm.addTextField("Swagger URL", "Swagger Definition URL", XForm.FieldType.URL).setWidth(40);
+        mainForm.addCheckBox("Strict Mode", "Enables strict validation (fails for undefined responses)");
+
+        dialog = builder.buildDialog(builder.buildOkCancelActions(),
+            "Specify Swagger URL and validation mode below", UISupport.OPTIONS_ICON);
     }
 
     public void setSwaggerUrl(String endpoint) {
         swaggerUrl = endpoint;
         swagger = null;
         swaggerSchema = null;
-
-        setConfiguration(createConfiguration());
     }
 
     protected XmlObject createConfiguration() {
         XmlObjectConfigurationBuilder builder = new XmlObjectConfigurationBuilder();
-        return builder.add(SWAGGER_URL, swaggerUrl).finish();
+        return builder.add(SWAGGER_URL, swaggerUrl).add(STRICT_MODE, strictMode).finish();
     }
 
     @Override
     protected String internalAssertResponse(MessageExchange messageExchange, SubmitContext submitContext) throws AssertionException {
 
         try {
+            if (swaggerUrl != null && messageExchange instanceof HttpMessageExchange) {
+                if (!messageExchange.hasResponse() || ((HttpMessageExchange) messageExchange).getResponseStatusCode() == 0) {
+                    throw new AssertionException(new AssertionError("Missing response to validate"));
+                }
 
-            if (swaggerUrl != null && messageExchange instanceof RestRequestStepResult) {
-                if (validateMessage((RestRequestStepResult) messageExchange, submitContext)) {
+                if (validateMessage((HttpMessageExchange) messageExchange, submitContext)) {
                     return "Response is compliant with Swagger Definition";
                 }
             }
@@ -106,7 +134,7 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
         return "Response is compliant with Swagger definition";
     }
 
-    private boolean validateMessage(RestRequestStepResult messageExchange, SubmitContext submitContext) throws MalformedURLException, AssertionException {
+    private boolean validateMessage(HttpMessageExchange messageExchange, SubmitContext submitContext) throws MalformedURLException, AssertionException {
         Swagger swagger = getSwagger(submitContext);
 
         HttpTestRequestInterface<?> testRequest = ((HttpTestRequestInterface) messageExchange.getModelItem());
@@ -122,17 +150,17 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
             for (String swaggerPath : swagger.getPaths().keySet()) {
 
                 if (matchesPath(path, swaggerPath)) {
-                    HttpMethod methodName = HttpMethod.valueOf(method.name());
-                    Operation operation = swagger.getPath(swaggerPath).getOperationMap().get(methodName);
+
+                    Operation operation = findOperation(swagger.getPath(swaggerPath), method);
                     if (operation != null) {
                         validateOperation(messageExchange,
                             messageExchange.getResponseContent(),
-                            swagger, path, methodName, operation);
+                            swagger, path, method, operation);
 
                         return true;
                     } else {
                         throw new AssertionException(new AssertionError(
-                            "Failed to find " + methodName + " method for path [" + path + "] in Swagger definition"));
+                            "Failed to find " + method + " method for path [" + path + "] in Swagger definition"));
                     }
                 }
             }
@@ -143,8 +171,27 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
         return false;
     }
 
-    private void validateOperation(RestRequestStepResult messageExchange, String contentAsString, Swagger swagger, String path, HttpMethod methodName, Operation operation) throws AssertionException {
-        String responseCode = String.valueOf(messageExchange.getResponse().getStatusCode());
+    private Operation findOperation(Path path, RestRequestInterface.HttpMethod method) {
+        switch (method) {
+            case GET:
+                return path.getGet();
+            case POST:
+                return path.getPost();
+            case DELETE:
+                return path.getDelete();
+            case PUT:
+                return path.getPut();
+            case PATCH:
+                return path.getPatch();
+            case OPTIONS:
+                return path.getOptions();
+        }
+
+        return null;
+    }
+
+    private void validateOperation(HttpMessageExchange messageExchange, String contentAsString, Swagger swagger, String path, RestRequestInterface.HttpMethod methodName, Operation operation) throws AssertionException {
+        String responseCode = String.valueOf(messageExchange.getResponseStatusCode());
 
         Response responseSchema = operation.getResponses().get(responseCode);
         if (responseSchema == null) {
@@ -153,7 +200,7 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
 
         if (responseSchema != null) {
             validateResponse(contentAsString, swagger, responseSchema);
-        } else {
+        } else if (strictMode) {
             throw new AssertionException(new AssertionError(
                 "Missing response for a " + responseCode + " response from " + methodName + " " + path + " in Swagger definition"));
         }
@@ -213,8 +260,15 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
             JsonSchema jsonSchema;
 
             if (schema != null) {
+                // make local refs absolute to match existing schema
+                schema = schema.replaceAll("\"#\\/definitions\\/", "\"" + swaggerUrl + "#/definitions/");
                 JsonNode schemaObject = Json.mapper().readTree(schema);
-                JsonSchemaFactory factory = JsonSchemaFactory.byDefault();
+
+                // build custom schema factory that preloads existing schema
+                JsonSchemaFactory factory = JsonSchemaFactory.newBuilder().setLoadingConfiguration(
+                    LoadingConfiguration.newBuilder().preloadSchema(swaggerUrl,
+                        Json.mapper().readTree(Json.pretty(swagger))).freeze()
+                ).freeze();
                 jsonSchema = factory.getJsonSchema(schemaObject);
             } else {
                 jsonSchema = getSwaggerSchema();
@@ -222,19 +276,7 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
 
             JsonNode contentObject = Json.mapper().readTree(payload);
 
-            ProcessingReport report = jsonSchema.validate(contentObject);
-            if (!report.isSuccess()) {
-                List<AssertionError> errors = Lists.newArrayList();
-                for (ProcessingMessage message : report) {
-                    if (message.getLogLevel() == LogLevel.ERROR || message.getLogLevel() == LogLevel.FATAL) {
-                        errors.add(new AssertionError(message.getMessage()));
-                    }
-                }
-
-                if (!errors.isEmpty()) {
-                    throw new AssertionException(errors.toArray(new AssertionError[errors.size()]));
-                }
-            }
+            ValidationSupport.validateMessage(jsonSchema, contentObject);
         } catch (AssertionException e) {
             throw e;
         } catch (Exception e) {

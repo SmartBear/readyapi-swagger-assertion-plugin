@@ -9,8 +9,6 @@
             <unpack>false</unpack>
             <outputDirectory>/lib</outputDirectory>
             <includes>
-                <include>io.swagger:swagger-parser</include>
-                <include>io.swagger:swagger-core</include>
                 <include>com.github.fge:json-schema-validator</include>
             </includes>
         </dependencySet>

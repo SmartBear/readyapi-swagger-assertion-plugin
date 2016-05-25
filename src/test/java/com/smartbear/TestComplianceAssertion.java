@@ -1,10 +1,12 @@
 package com.smartbear;
 
 import com.eviware.soapui.config.TestAssertionConfig;
+import com.eviware.soapui.impl.rest.support.RestParamProperty;
 import com.eviware.soapui.impl.support.http.HttpRequestTestStep;
 import com.eviware.soapui.impl.wsdl.WsdlProjectPro;
 import com.eviware.soapui.impl.wsdl.testcase.WsdlTestCase;
 import com.eviware.soapui.impl.wsdl.testcase.WsdlTestCaseRunner;
+import com.eviware.soapui.impl.wsdl.teststeps.HttpTestRequestStep;
 import com.eviware.soapui.impl.wsdl.teststeps.RestRequestStepResult;
 import com.eviware.soapui.impl.wsdl.teststeps.registry.HttpRequestStepFactory;
 import com.eviware.soapui.model.testsuite.Assertable;
@@ -24,8 +26,12 @@ public class TestComplianceAssertion {
         // create the project
         WsdlProjectPro project = new WsdlProjectPro();
         WsdlTestCase wsdlTestCase = project.addNewTestSuite("TestSuite").addNewTestCase("TestCase");
-        HttpRequestTestStep testStep =
-            (HttpRequestTestStep) wsdlTestCase.addTestStep(HttpRequestStepFactory.HTTPREQUEST_TYPE, "Request","https://api.swaggerhub.com/apis", "GET" );
+        HttpTestRequestStep testStep =
+            (HttpTestRequestStep) wsdlTestCase.addTestStep(HttpRequestStepFactory.HTTPREQUEST_TYPE,
+                "Request","http://petstore.swagger.io/v2/pet/findByTags", "GET" );
+
+        testStep.getTestRequest().getParams().addProperty( "tags");
+        testStep.getTestRequest().setSendEmptyParameters(true);
 
         // run it
         WsdlTestCaseRunner runner = wsdlTestCase.run(new StringToObjectMap(), false);
@@ -34,7 +40,7 @@ public class TestComplianceAssertion {
         // create the assertion
         TestAssertionConfig config = TestAssertionConfig.Factory.newInstance();
         XmlObjectConfigurationBuilder builder = new XmlObjectConfigurationBuilder();
-        builder.add("swaggerUrl", "https://api.swaggerhub.com/swagger.json");
+        builder.add("swaggerUrl", "http://petstore.swagger.io/v2/swagger.json");
         config.setConfiguration( builder.finish() );
 
         SwaggerComplianceAssertion assertion = new SwaggerComplianceAssertion(config, testStep);
