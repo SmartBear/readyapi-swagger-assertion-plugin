@@ -36,6 +36,7 @@ import java.net.URL;
     description = "Asserts that the response message is compliant with a JSON Schema definition")
 public class JsonSchemaComplianceAssertion extends WsdlMessageAssertion implements ResponseAssertion {
     private static final String SCHEMA_URL = "schemaUrl";
+    private static final String SCHEMA_URL_FIELD = "Schema URL";
     private String schemaUrl;
     private JsonSchema jsonSchema;
     private XFormDialog dialog;
@@ -62,11 +63,11 @@ public class JsonSchemaComplianceAssertion extends WsdlMessageAssertion implemen
         }
 
         StringToStringMap values = new StringToStringMap();
-        values.put(SCHEMA_URL, schemaUrl);
+        values.put(SCHEMA_URL_FIELD, schemaUrl);
 
         values = dialog.show(values);
         if (dialog.getReturnValue() == XFormDialog.OK_OPTION) {
-            setSchemaUrl(values.get(SCHEMA_URL));
+            setSchemaUrl(values.get(SCHEMA_URL_FIELD));
         }
 
         setConfiguration(createConfiguration());
@@ -77,7 +78,7 @@ public class JsonSchemaComplianceAssertion extends WsdlMessageAssertion implemen
         XFormDialogBuilder builder = XFormFactory.createDialogBuilder("JSON Schema Compliance Assertion");
         XForm mainForm = builder.createForm("Basic");
 
-        mainForm.addTextField("Schema URL", "URL for JSON Schema Definition", XForm.FieldType.URL).setWidth(40);
+        mainForm.addTextField(SCHEMA_URL_FIELD, "URL for JSON Schema Definition", XForm.FieldType.URL).setWidth(40);
 
         dialog = builder.buildDialog(builder.buildOkCancelActions(),
             "Specify JSON Schema URL", UISupport.OPTIONS_ICON);
@@ -117,7 +118,7 @@ public class JsonSchemaComplianceAssertion extends WsdlMessageAssertion implemen
 
     private boolean validateMessage(HttpMessageExchange messageExchange, SubmitContext submitContext) throws MalformedURLException, AssertionException {
         try {
-            JsonSchema jsonSchema = getJsonSchema();
+            JsonSchema jsonSchema = getJsonSchema( submitContext);
             JsonNode contentObject = Json.mapper().readTree(messageExchange.getResponseContent());
 
             ValidationSupport.validateMessage(jsonSchema, contentObject);
@@ -130,9 +131,9 @@ public class JsonSchemaComplianceAssertion extends WsdlMessageAssertion implemen
         return true;
     }
 
-    private JsonSchema getJsonSchema() throws IOException, ProcessingException {
+    private JsonSchema getJsonSchema(SubmitContext submitContext) throws IOException, ProcessingException {
         if (jsonSchema == null) {
-            JsonNode schemaObject = Json.mapper().readTree(new URL(schemaUrl));
+            JsonNode schemaObject = Json.mapper().readTree(new URL(submitContext.expand(schemaUrl)));
             JsonSchemaFactory factory = JsonSchemaFactory.byDefault();
             jsonSchema = factory.getJsonSchema(schemaObject);
         }

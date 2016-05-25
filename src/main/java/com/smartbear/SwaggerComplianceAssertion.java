@@ -48,6 +48,8 @@ import java.net.URL;
 public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements ResponseAssertion {
     private static final String SWAGGER_URL = "swaggerUrl";
     private static final String STRICT_MODE = "strictMode";
+    private static final String SWAGGER_URL_FIELD = "Swagger URL";
+    private static final String STRICT_MODE_FIELD = "Strict Mode";
     private boolean strictMode;
     private String swaggerUrl;
     private Swagger swagger;
@@ -77,13 +79,13 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
         }
 
         StringToStringMap values = new StringToStringMap();
-        values.put(SWAGGER_URL, swaggerUrl);
-        values.put(STRICT_MODE, strictMode);
+        values.put(SWAGGER_URL_FIELD, swaggerUrl);
+        values.put(STRICT_MODE_FIELD, strictMode);
 
         values = dialog.show(values);
         if (dialog.getReturnValue() == XFormDialog.OK_OPTION) {
-            setSwaggerUrl(values.get(SWAGGER_URL));
-            strictMode = values.getBoolean(STRICT_MODE);
+            setSwaggerUrl(values.get(SWAGGER_URL_FIELD));
+            strictMode = values.getBoolean(STRICT_MODE_FIELD);
         }
 
         setConfiguration(createConfiguration());
@@ -94,8 +96,8 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
         XFormDialogBuilder builder = XFormFactory.createDialogBuilder("Swagger Compliance Assertion");
         XForm mainForm = builder.createForm("Basic");
 
-        mainForm.addTextField("Swagger URL", "Swagger Definition URL", XForm.FieldType.URL).setWidth(40);
-        mainForm.addCheckBox("Strict Mode", "Enables strict validation (fails for undefined responses)");
+        mainForm.addTextField(SWAGGER_URL_FIELD, "Swagger Definition URL", XForm.FieldType.URL).setWidth(40);
+        mainForm.addCheckBox(STRICT_MODE_FIELD, "Enables strict validation (fails for undefined responses)");
 
         dialog = builder.buildDialog(builder.buildOkCancelActions(),
             "Specify Swagger URL and validation mode below", UISupport.OPTIONS_ICON);
