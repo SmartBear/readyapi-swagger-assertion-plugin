@@ -263,7 +263,7 @@ public class SwaggerComplianceAssertion extends WsdlMessageAssertion implements 
 
             if (schema != null) {
                 // make local refs absolute to match existing schema
-              //  schema = schema.replaceAll("\"#\\/definitions\\/", "\"" + swaggerUrl + "#/definitions/");
+                schema = schema.replaceAll("\"#\\/definitions\\/", "\"" + swaggerUrl + "#/definitions/");
                 JsonNode schemaObject = Json.mapper().readTree(schema);
 
                 // build custom schema factory that preloads existing schema
