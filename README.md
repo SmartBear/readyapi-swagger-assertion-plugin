@@ -16,7 +16,8 @@ Validates the response payload against the specified JSON Schema
 ### Implementation
 
 Uses version 2.2.6 of the [JSON Schema Validator](https://github.com/fge/json-schema-validator) library for 
-schema validations - which currently supports most of version 3 and 4 drafts of JSON Schema [Read more](https://github.com/fge/json-schema-validator/wiki/Status)
+schema validations - which currently supports most of version 3 and 4 drafts of JSON Schema - 
+[Read more...](https://github.com/fge/json-schema-validator/wiki/Status)
 
 ### Build info
 
